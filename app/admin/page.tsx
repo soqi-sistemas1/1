@@ -12,20 +12,62 @@ import { formatarPreco } from "@/lib/utils"
 import { Package, ShoppingBag, Users, Map, Settings, Home, PlusCircle, Trash, Edit, Save, Palette } from "lucide-react"
 import Link from "next/link"
 
-export default function AdminPage() {
+import { listarPedidos } from "@/services/pedidos"
+import { listarProdutos } from "@/services/produtos"
+import { listarCategorias } from "@/services/categorias"
+import { listarBairros } from "@/services/bairros"
+import { listarMetodosPagamento } from "@/services/metodos-pagamento"
+import { obterConfiguracoes } from "@/services/configuracoes"
+
+export const dynamic = "force-dynamic"
+
+export default async function AdminPageWrapper() {
+  // Carrega todos os dados necessários do banco de dados
+  const [pedidos, produtos, categorias, bairros, metodosPagamento, configuracoes] = await Promise.all([
+    listarPedidos(),
+    listarProdutos(false),
+    listarCategorias(false),
+    listarBairros(false),
+    listarMetodosPagamento(false),
+    obterConfiguracoes(),
+  ])
+
+  // Passa os dados para o componente cliente
+  return (
+    <AdminPage
+      pedidosIniciais={pedidos}
+      produtosIniciais={produtos}
+      categoriasIniciais={categorias}
+      bairrosIniciais={bairros}
+      metodosPagamentoIniciais={metodosPagamento}
+      configuracoesIniciais={configuracoes}
+    />
+  )
+}
+
+function AdminPage({
+  pedidosIniciais,
+  produtosIniciais,
+  categoriasIniciais,
+  bairrosIniciais,
+  metodosPagamentoIniciais,
+  configuracoesIniciais,
+}) {
   const [activeTab, setActiveTab] = useState("pedidos")
-  const [pedidos, setPedidos] = useState([])
-  const [produtos, setProdutos] = useState([])
-  const [categorias, setCategorias] = useState([])
-  const [bairros, setBairros] = useState([])
-  const [metodoPagamento, setMetodoPagamento] = useState([])
-  const [configuracoes, setConfiguracoes] = useState({
-    nomeEstabelecimento: "Lanchonete Delícia",
-    telefoneWhatsapp: "(00) 00000-0000",
-    endereco: "Rua Exemplo, 123 - Centro",
-    horarioFuncionamento: "Segunda a Domingo: 18h às 23h",
-    logoUrl: "/placeholder.svg?height=60&width=200",
-  })
+  const [pedidos, setPedidos] = useState(pedidosIniciais || [])
+  const [produtos, setProdutos] = useState(produtosIniciais || [])
+  const [categorias, setCategorias] = useState(categoriasIniciais || [])
+  const [bairros, setBairros] = useState(bairrosIniciais || [])
+  const [metodoPagamento, setMetodoPagamento] = useState(metodosPagamentoIniciais || [])
+  const [configuracoes, setConfiguracoes] = useState(
+    configuracoesIniciais || {
+      nomeEstabelecimento: "Lanchonete Delícia",
+      telefoneWhatsapp: "(00) 00000-0000",
+      endereco: "Rua Exemplo, 123 - Centro",
+      horarioFuncionamento: "Segunda a Domingo: 18h às 23h",
+      logoUrl: "/placeholder.svg?height=60&width=200",
+    },
+  )
 
   const [editando, setEditando] = useState({
     tipo: "",

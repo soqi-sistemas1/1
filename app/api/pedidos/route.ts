@@ -1,50 +1,61 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { listarPedidos, criarPedido } from "@/services/pedidos"
 
-export async function POST(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const pedido = await request.json()
+    const searchParams = request.nextUrl.searchParams
+    const status = searchParams.get("status")
 
-    // Aqui seria feita a lógica para salvar o pedido no banco de dados
-    // e enviar notificação para o WhatsApp
+    const pedidos = await listarPedidos(status || undefined)
 
-    // Simulação de envio para WhatsApp
-    console.log("Enviando pedido para WhatsApp:", pedido)
+    return NextResponse.json(pedidos)
+  } catch (error) {
+    console.error("Erro ao listar pedidos:", error)
+    return NextResponse.json({ error: "Erro ao listar pedidos" }, { status: 500 })
+  }
+}
 
-    // Em um sistema real, aqui seria feita a integração com a API do WhatsApp
+export async function POST(request: NextRequest) {
+  try {
+    const { cliente, pedido, itens } = await request.json()
+
+    const novoPedido = await criarPedido(cliente, pedido, itens)
+
+    // Aqui seria feita a integração com o WhatsApp
     // Exemplo de mensagem que seria enviada:
     const mensagem = `
-      🍔 *NOVO PEDIDO #${Date.now()}* 🍔
+      🍔 *NOVO PEDIDO #${novoPedido.id}* 🍔
       
-      *Cliente:* ${pedido.cliente.nome}
-      *Telefone:* ${pedido.cliente.telefone}
+      *Cliente:* ${novoPedido.cliente.nome}
+      *Telefone:* ${novoPedido.cliente.telefone}
       
       *Itens:*
-      ${pedido.itens
+      ${novoPedido.itens
         .map(
           (
             item,
-          ) => `- ${item.quantidade}x ${item.nome} (${(item.preco * item.quantidade).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})
+          ) => `- ${item.quantidade}x ${item.produto.nome} (${(item.preco_unitario * item.quantidade).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})
       `,
         )
         .join("")}
       
-      *Subtotal:* ${pedido.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-      ${pedido.taxaEntrega > 0 ? `*Taxa de entrega:* ${pedido.taxaEntrega.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
-      *Total:* ${(pedido.total + pedido.taxaEntrega).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+      *Subtotal:* ${novoPedido.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+      ${novoPedido.taxa_entrega > 0 ? `*Taxa de entrega:* ${novoPedido.taxa_entrega.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+      *Total:* ${(novoPedido.total + novoPedido.taxa_entrega).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
       
-      *Forma de pagamento:* ${pedido.cliente.metodoPagamento}
+      *Forma de pagamento:* ${novoPedido.metodo_pagamento}
       
       ${
-        pedido.cliente.entrega
+        novoPedido.entrega
           ? `
       *Endereço de entrega:*
-      ${pedido.cliente.rua}, ${pedido.cliente.numero}
-      ${pedido.cliente.bairro}
+      ${novoPedido.rua}, ${novoPedido.numero}
+      ${novoPedido.bairro}
       `
           : "*Retirada no local*"
       }
       
-      ${pedido.cliente.observacoes ? `*Observações:* ${pedido.cliente.observacoes}` : ""}
+      ${novoPedido.observacoes ? `*Observações:* ${novoPedido.observacoes}` : ""}
     `
 
     console.log("Mensagem WhatsApp:", mensagem)
@@ -52,9 +63,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Pedido recebido com sucesso!",
+      pedido: novoPedido,
     })
   } catch (error) {
     console.error("Erro ao processar pedido:", error)
-    return NextResponse.json({ success: false, message: "Erro ao processar pedido" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "Erro ao processar pedido", error: error.message },
+      { status: 500 },
+    )
   }
 }
