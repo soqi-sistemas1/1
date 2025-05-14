@@ -139,6 +139,7 @@ export default function ClientePage({
     })
   }
 
+  // Modificar a função enviarPedido para incluir o redirecionamento para o WhatsApp
   const enviarPedido = async () => {
     if (!dadosCliente.nome) {
       toast({
@@ -211,10 +212,18 @@ export default function ClientePage({
       })
 
       if (response.ok) {
+        const resultado = await response.json()
+
         toast({
           title: "Sucesso!",
           description: "Seu pedido foi enviado com sucesso!",
         })
+
+        // Redirecionar para o WhatsApp se houver um link e a configuração estiver ativada
+        if (resultado.whatsapp && resultado.whatsapp.link && configuracoes.envio_automatico_whatsapp) {
+          // Abrir o link do WhatsApp em uma nova aba
+          window.open(resultado.whatsapp.link, "_blank")
+        }
 
         limparCarrinho()
         setDadosCliente({

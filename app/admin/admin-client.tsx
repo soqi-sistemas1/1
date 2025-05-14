@@ -8,9 +8,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatarPreco } from "@/lib/utils"
-import { Package, ShoppingBag, Users, Map, Settings, Home, PlusCircle, Trash, Edit, Save, Palette } from "lucide-react"
+import {
+  Package,
+  ShoppingBag,
+  Users,
+  Map,
+  Settings,
+  Home,
+  PlusCircle,
+  Trash,
+  Edit,
+  Save,
+  Palette,
+  LogOut,
+} from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 import { UploadImagem } from "@/components/upload-imagem"
 import type { PedidoCompleto } from "@/services/pedidos"
 import type { Produto } from "@/services/produtos"
@@ -37,6 +51,7 @@ export default function AdminPage({
   configuracoesIniciais,
 }: AdminPageProps) {
   const { toast } = useToast()
+  const { user, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState("pedidos")
   const [pedidos, setPedidos] = useState(pedidosIniciais)
   const [produtos, setProdutos] = useState(produtosIniciais)
@@ -428,6 +443,37 @@ export default function AdminPage({
     }
   }
 
+  const handleLogout = async () => {
+    if (confirm("Tem certeza que deseja sair?")) {
+      await signOut()
+    }
+  }
+
+  // Adicionar a função para enviar pedido para WhatsApp
+  const enviarPedidoWhatsApp = async (id: number) => {
+    try {
+      const response = await fetch(`/api/pedidos/${id}/whatsapp`)
+
+      if (!response.ok) {
+        throw new Error("Erro ao gerar link do WhatsApp")
+      }
+
+      const data = await response.json()
+
+      // Abrir o link do WhatsApp em uma nova aba
+      if (data.whatsapp && data.whatsapp.link) {
+        window.open(data.whatsapp.link, "_blank")
+      }
+    } catch (error) {
+      console.error("Erro ao enviar para WhatsApp:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar o pedido para o WhatsApp.",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -437,14 +483,15 @@ export default function AdminPage({
             <h1 className="text-xl font-bold">Painel Administrativo</h1>
           </div>
           <div className="flex items-center gap-4">
+            {user && <span className="text-sm text-gray-600">Logado como: {user.email}</span>}
             <Link href="/" className="text-blue-600 hover:underline flex items-center">
               <Home className="h-4 w-4 mr-1" /> Ver Site
             </Link>
             <Link href="/admin/personalizar" className="text-orange-500 hover:underline flex items-center">
               <Palette className="h-4 w-4 mr-1" /> Personalizar Tema
             </Link>
-            <Button variant="outline" size="sm">
-              Sair
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-1" /> Sair
             </Button>
           </div>
         </div>
@@ -528,6 +575,31 @@ export default function AdminPage({
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm">
                                 Ver Detalhes
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700"
+                                onClick={() => enviarPedidoWhatsApp(pedido.id)}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="h-4 w-4 mr-1"
+                                >
+                                  <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+                                  <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
+                                  <path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
+                                  <path d="M9 14a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 0-1h-5a.5.5 0 0 0-.5.5Z" />
+                                </svg>
+                                WhatsApp
                               </Button>
                               <Button
                                 variant="destructive"
@@ -1161,6 +1233,23 @@ export default function AdminPage({
                           />
                         </div>
 
+                        <div className="space-y-2">
+                          <Label htmlFor="envio_automatico_whatsapp">Envio Automático para WhatsApp</Label>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="envio_automatico_whatsapp"
+                              name="envio_automatico_whatsapp"
+                              checked={editando.dados.envio_automatico_whatsapp}
+                              onChange={handleInputChange}
+                              disabled={carregando}
+                            />
+                            <label htmlFor="envio_automatico_whatsapp">
+                              Enviar pedidos automaticamente para o WhatsApp
+                            </label>
+                          </div>
+                        </div>
+
                         <div className="space-y-2 md:col-span-2">
                           <Label>Logo do Estabelecimento</Label>
                           <UploadImagem
@@ -1211,6 +1300,11 @@ export default function AdminPage({
                         <div>
                           <h3 className="font-semibold mb-2">Horário de Funcionamento</h3>
                           <p>{configuracoes.horario_funcionamento}</p>
+                        </div>
+
+                        <div>
+                          <h3 className="font-semibold mb-2">Envio Automático para WhatsApp</h3>
+                          <p>{configuracoes.envio_automatico_whatsapp ? "Ativado" : "Desativado"}</p>
                         </div>
 
                         <div className="md:col-span-2">

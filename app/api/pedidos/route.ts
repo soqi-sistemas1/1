@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { listarPedidos, criarPedido } from "@/services/pedidos"
+import { obterConfiguracoes } from "@/services/configuracoes"
+import { formatarPedidoParaWhatsApp, gerarLinkWhatsApp } from "@/services/whatsapp"
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,49 +23,25 @@ export async function POST(request: NextRequest) {
 
     const novoPedido = await criarPedido(cliente, pedido, itens)
 
-    // Aqui seria feita a integração com o WhatsApp
-    // Exemplo de mensagem que seria enviada:
-    const mensagem = `
-      🍔 *NOVO PEDIDO #${novoPedido.id}* 🍔
-      
-      *Cliente:* ${novoPedido.cliente.nome}
-      *Telefone:* ${novoPedido.cliente.telefone}
-      
-      *Itens:*
-      ${novoPedido.itens
-        .map(
-          (
-            item,
-          ) => `- ${item.quantidade}x ${item.produto.nome} (${(item.preco_unitario * item.quantidade).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})
-      `,
-        )
-        .join("")}
-      
-      *Subtotal:* ${novoPedido.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-      ${novoPedido.taxa_entrega > 0 ? `*Taxa de entrega:* ${novoPedido.taxa_entrega.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
-      *Total:* ${(novoPedido.total + novoPedido.taxa_entrega).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-      
-      *Forma de pagamento:* ${novoPedido.metodo_pagamento}
-      
-      ${
-        novoPedido.entrega
-          ? `
-      *Endereço de entrega:*
-      ${novoPedido.rua}, ${novoPedido.numero}
-      ${novoPedido.bairro}
-      `
-          : "*Retirada no local*"
-      }
-      
-      ${novoPedido.observacoes ? `*Observações:* ${novoPedido.observacoes}` : ""}
-    `
+    // Obter as configurações para pegar o telefone do estabelecimento
+    const configuracoes = await obterConfiguracoes()
 
-    console.log("Mensagem WhatsApp:", mensagem)
+    // Formatar a mensagem para o WhatsApp
+    const mensagemWhatsApp = formatarPedidoParaWhatsApp(novoPedido)
+
+    // Gerar o link do WhatsApp
+    const linkWhatsApp = gerarLinkWhatsApp(configuracoes.telefone_whatsapp, mensagemWhatsApp)
+
+    console.log("Mensagem WhatsApp:", mensagemWhatsApp)
 
     return NextResponse.json({
       success: true,
       message: "Pedido recebido com sucesso!",
       pedido: novoPedido,
+      whatsapp: {
+        link: linkWhatsApp,
+        mensagem: mensagemWhatsApp,
+      },
     })
   } catch (error) {
     console.error("Erro ao processar pedido:", error)

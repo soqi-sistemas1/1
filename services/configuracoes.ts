@@ -13,6 +13,7 @@ export type Configuracao = {
   cor_fundo: string
   cor_texto: string
   border_radius: string
+  envio_automatico_whatsapp: boolean
   created_at: string
 }
 
