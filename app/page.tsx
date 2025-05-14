@@ -6,22 +6,19 @@ import { listarBanners } from "@/services/banners"
 import { obterConfiguracoes } from "@/services/configuracoes"
 import ClientePage from "./client-page"
 
-export const dynamic = "force-dynamic"
+export const revalidate = 60 // Revalidar a cada 60 segundos
 
 export default async function Home() {
-  // Carrega todos os dados necessários do banco de dados
-  const [categorias, bairros, metodosPagamento, banners, configuracoes] = await Promise.all([
+  // Carregar dados do banco de dados
+  const [categorias, produtos, bairros, metodosPagamento, banners, configuracoes] = await Promise.all([
     listarCategorias(),
+    listarProdutos(),
     listarBairros(),
     listarMetodosPagamento(),
     listarBanners(),
     obterConfiguracoes(),
   ])
 
-  // Carrega os produtos da primeira categoria, se existir
-  const produtos = categorias.length > 0 ? await listarProdutos(true) : []
-
-  // Passa os dados para o componente cliente
   return (
     <ClientePage
       categorias={categorias}
