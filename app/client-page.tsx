@@ -57,19 +57,31 @@ export default function ClientePage({
   const [taxaEntrega, setTaxaEntrega] = useState(0)
   const [carregando, setCarregando] = useState(false)
 
-  // Aplicar configurações de tema
+  // Aplicar configurações de tema - CORRIGIDO para evitar loop infinito
   useEffect(() => {
     if (configuracoes) {
-      atualizarTema({
+      const novoTema = {
         corPrimaria: configuracoes.cor_primaria,
         corSecundaria: configuracoes.cor_secundaria,
         corAcento: configuracoes.cor_acento,
         corFundo: configuracoes.cor_fundo,
         corTexto: configuracoes.cor_texto,
         borderRadius: configuracoes.border_radius,
-      })
+      }
+
+      // Verificar se o tema realmente mudou antes de atualizar
+      if (
+        tema.corPrimaria !== novoTema.corPrimaria ||
+        tema.corSecundaria !== novoTema.corSecundaria ||
+        tema.corAcento !== novoTema.corAcento ||
+        tema.corFundo !== novoTema.corFundo ||
+        tema.corTexto !== novoTema.corTexto ||
+        tema.borderRadius !== novoTema.borderRadius
+      ) {
+        atualizarTema(novoTema)
+      }
     }
-  }, [configuracoes, atualizarTema])
+  }, [configuracoes]) // Removido tema e atualizarTema das dependências
 
   // Definir categoria inicial
   useEffect(() => {
@@ -258,6 +270,9 @@ export default function ClientePage({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Resto do código permanece igual */}
+      {/* ... */}
+
       {/* Cabeçalho */}
       <header className="bg-white shadow-sm" style={{ backgroundColor: tema.corFundo }}>
         <div className="container mx-auto p-4 flex justify-center items-center">
