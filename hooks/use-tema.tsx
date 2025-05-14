@@ -11,11 +11,13 @@ type TemaConfig = {
   corFundo: string
   corTexto: string
   borderRadius: string
+  modoEscuro: boolean
 }
 
 type TemaContextType = {
   tema: TemaConfig
   atualizarTema: (novoTema: Partial<TemaConfig>) => void
+  toggleModoEscuro: () => void
 }
 
 const temaInicial: TemaConfig = {
@@ -25,6 +27,13 @@ const temaInicial: TemaConfig = {
   corFundo: "#ffffff", // white
   corTexto: "#1f2937", // gray-800
   borderRadius: "0.5rem",
+  modoEscuro: false,
+}
+
+// Cores para o modo escuro
+const coresModoEscuro = {
+  corFundo: "#121212", // Fundo escuro
+  corTexto: "#e5e5e5", // Texto claro
 }
 
 const TemaContext = createContext<TemaContextType | undefined>(undefined)
@@ -64,9 +73,34 @@ export function TemaProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty("--primary", toHSL(tema.corPrimaria))
     document.documentElement.style.setProperty("--primary-foreground", "0 0% 100%")
 
+    // Aplicar classe de modo escuro ao documento
+    if (tema.modoEscuro) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+
     // Salvar no localStorage
     localStorage.setItem("tema-config", JSON.stringify(tema))
   }, [tema, isInitialized])
+
+  // Alternar entre modo claro e escuro
+  const toggleModoEscuro = useCallback(() => {
+    setTema((temaAtual) => {
+      const novoModoEscuro = !temaAtual.modoEscuro
+
+      // Ajustar cores com base no modo
+      const novaCorFundo = novoModoEscuro ? coresModoEscuro.corFundo : temaInicial.corFundo
+      const novaCorTexto = novoModoEscuro ? coresModoEscuro.corTexto : temaInicial.corTexto
+
+      return {
+        ...temaAtual,
+        modoEscuro: novoModoEscuro,
+        corFundo: novaCorFundo,
+        corTexto: novaCorTexto,
+      }
+    })
+  }, [])
 
   // Usar useCallback para evitar recriação da função em cada renderização
   const atualizarTema = useCallback((novoTema: Partial<TemaConfig>) => {
@@ -81,7 +115,8 @@ export function TemaProvider({ children }: { children: React.ReactNode }) {
         temaAtual.corAcento === temaAtualizado.corAcento &&
         temaAtual.corFundo === temaAtualizado.corFundo &&
         temaAtual.corTexto === temaAtualizado.corTexto &&
-        temaAtual.borderRadius === temaAtualizado.borderRadius
+        temaAtual.borderRadius === temaAtualizado.borderRadius &&
+        temaAtual.modoEscuro === temaAtualizado.modoEscuro
       ) {
         // Se nada mudou, retornar o estado atual para evitar re-renderização
         return temaAtual
@@ -91,7 +126,7 @@ export function TemaProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  return <TemaContext.Provider value={{ tema, atualizarTema }}>{children}</TemaContext.Provider>
+  return <TemaContext.Provider value={{ tema, atualizarTema, toggleModoEscuro }}>{children}</TemaContext.Provider>
 }
 
 export function useTema() {

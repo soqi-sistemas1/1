@@ -5,10 +5,13 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClientSupabaseClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { useTema } from "@/hooks/use-tema"
 
 type User = {
   id: string
   email: string
+  isAdmin?: boolean
+  isSuperAdmin?: boolean
 }
 
 type AuthContextType = {
@@ -25,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClientSupabaseClient()
+  const { atualizarTema } = useTema()
 
   useEffect(() => {
     // Verificar se o usuário já está autenticado
@@ -37,10 +41,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getSession()
 
         if (session?.user) {
+          // Buscar informações adicionais do administrador
+          const { data: adminData } = await supabase
+            .from("administradores")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .single()
+
           setUser({
             id: session.user.id,
             email: session.user.email || "",
+            isAdmin: !!adminData,
+            isSuperAdmin: adminData?.super_admin || false,
           })
+
+          // Carregar preferência de modo escuro
+          if (adminData) {
+            const { data: prefData } = await supabase
+              .from("preferencias_usuario")
+              .select("modo_escuro")
+              .eq("user_id", session.user.id)
+              .single()
+
+            if (prefData) {
+              atualizarTema({ modoEscuro: prefData.modo_escuro })
+            }
+          }
         } else {
           setUser(null)
         }
@@ -59,10 +85,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
+        // Buscar informações adicionais do administrador
+        const { data: adminData } = await supabase
+          .from("administradores")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .single()
+
         setUser({
           id: session.user.id,
           email: session.user.email || "",
+          isAdmin: !!adminData,
+          isSuperAdmin: adminData?.super_admin || false,
         })
+
+        // Carregar preferência de modo escuro
+        if (adminData) {
+          const { data: prefData } = await supabase
+            .from("preferencias_usuario")
+            .select("modo_escuro")
+            .eq("user_id", session.user.id)
+            .single()
+
+          if (prefData) {
+            atualizarTema({ modoEscuro: prefData.modo_escuro })
+          }
+        }
       } else {
         setUser(null)
       }
@@ -74,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [router, supabase])
+  }, [router, supabase, atualizarTema])
 
   const signIn = async (email: string, password: string) => {
     try {

@@ -21,6 +21,9 @@ import {
   Save,
   Palette,
   LogOut,
+  Moon,
+  Sun,
+  ShieldCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
@@ -32,6 +35,7 @@ import type { Categoria } from "@/services/categorias"
 import type { Bairro } from "@/services/bairros"
 import type { MetodoPagamento } from "@/services/metodos-pagamento"
 import type { Configuracao } from "@/services/configuracoes"
+import { useTema } from "@/hooks/use-tema"
 
 interface AdminPageProps {
   pedidosIniciais: PedidoCompleto[]
@@ -40,6 +44,7 @@ interface AdminPageProps {
   bairrosIniciais: Bairro[]
   metodosPagamentoIniciais: MetodoPagamento[]
   configuracoesIniciais: Configuracao
+  isSuperAdmin: boolean
 }
 
 export default function AdminPage({
@@ -49,6 +54,7 @@ export default function AdminPage({
   bairrosIniciais,
   metodosPagamentoIniciais,
   configuracoesIniciais,
+  isSuperAdmin,
 }: AdminPageProps) {
   const { toast } = useToast()
   const { user, signOut } = useAuth()
@@ -60,6 +66,7 @@ export default function AdminPage({
   const [metodoPagamento, setMetodoPagamento] = useState(metodosPagamentoIniciais)
   const [configuracoes, setConfiguracoes] = useState(configuracoesIniciais)
   const [carregando, setCarregando] = useState(false)
+  const { tema, toggleModoEscuro } = useTema()
 
   const [editando, setEditando] = useState({
     tipo: "",
@@ -474,6 +481,25 @@ export default function AdminPage({
     }
   }
 
+  // Modifique a função de toggle do modo escuro para salvar a preferência
+  const handleToggleModoEscuro = async () => {
+    // Primeiro, alterna o modo escuro na UI
+    toggleModoEscuro()
+
+    // Depois, salva a preferência no banco de dados
+    try {
+      await fetch("/api/admin/preferencias/modo-escuro", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ modoEscuro: !tema.modoEscuro }),
+      })
+    } catch (error) {
+      console.error("Erro ao salvar preferência de modo escuro:", error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -492,6 +518,9 @@ export default function AdminPage({
             </Link>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-1" /> Sair
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleToggleModoEscuro} className="ml-2">
+              {tema.modoEscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -518,6 +547,11 @@ export default function AdminPage({
             <TabsTrigger value="configuracoes" className="flex items-center">
               <Settings className="h-4 w-4 mr-2" /> Configurações
             </TabsTrigger>
+            {isSuperAdmin && (
+              <TabsTrigger value="administradores" className="flex items-center">
+                <ShieldCheck className="h-4 w-4 mr-2" /> Administradores
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Conteúdo da aba Pedidos */}
@@ -1328,6 +1362,23 @@ export default function AdminPage({
               </CardContent>
             </Card>
           </TabsContent>
+          {isSuperAdmin && (
+            <TabsContent value="administradores" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gerenciar Administradores</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-4">Gerencie os usuários administradores do sistema.</p>
+                  <Button asChild>
+                    <Link href="/admin/administradores">
+                      <ShieldCheck className="h-4 w-4 mr-2" /> Ir para Gerenciamento de Administradores
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
