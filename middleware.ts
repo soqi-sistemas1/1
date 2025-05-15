@@ -17,12 +17,18 @@ export async function middleware(req: NextRequest) {
 
   // Permitir acesso à página de setup e login sem autenticação
   if (isSetupRoute || isLoginRoute) {
+    // Se o usuário já estiver autenticado e tentar acessar login/setup, redirecionar para o painel
+    if (session) {
+      const redirectUrl = new URL("/admin", req.url)
+      return NextResponse.redirect(redirectUrl)
+    }
     return res
   }
 
   // Se for uma rota administrativa e não estiver autenticado, redirecionar para login
   if (isAdminRoute && !session) {
     const redirectUrl = new URL("/admin/login", req.url)
+    redirectUrl.searchParams.set("from", req.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
   }
 

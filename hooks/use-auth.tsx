@@ -42,15 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserPreferences((prev) => ({ ...prev, ...preferences }))
 
       // Atualizar no banco de dados
-      const { data, error } = await supabase
-        .from("preferencias_usuario")
-        .upsert({
-          user_id: user.id,
-          modo_escuro: preferences.modoEscuro !== undefined ? preferences.modoEscuro : userPreferences.modoEscuro,
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
+      const { error } = await supabase.from("preferencias_usuario").upsert({
+        user_id: user.id,
+        modo_escuro: preferences.modoEscuro !== undefined ? preferences.modoEscuro : userPreferences.modoEscuro,
+        updated_at: new Date().toISOString(),
+      })
 
       if (error) {
         console.error("Erro ao atualizar preferências:", error)
@@ -130,46 +126,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email)
+
       if (session?.user) {
-        // Buscar informações adicionais do administrador
-        const { data: adminData } = await supabase
-          .from("administradores")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .single()
-
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          isAdmin: !!adminData,
-          isSuperAdmin: adminData?.super_admin || false,
-        })
-
-        // Carregar preferência de modo escuro
-        if (adminData) {
-          const { data: prefData } = await supabase
-            .from("preferencias_usuario")
-            .select("modo_escuro")
+        try {
+          // Buscar informações adicionais do administrador
+          const { data: adminData, error: adminError } = await supabase
+            .from("administradores")
+            .select("*")
             .eq("user_id", session.user.id)
             .single()
 
-          if (prefData) {
-            setUserPreferences({ modoEscuro: prefData.modo_escuro })
+          if (adminError && adminError.code !== "PGRST116") {
+            console.error("Erro ao buscar dados do administrador:", adminError)
+          }
 
-            // Aplicar modo escuro diretamente
-            if (prefData.modo_escuro) {
-              document.documentElement.classList.add("dark")
-            } else {
-              document.documentElement.classList.remove("dark")
+          setUser({
+            id: session.user.id,
+            email: session.user.email || "",
+            isAdmin: !!adminData,
+            isSuperAdmin: adminData?.super_admin || false,
+          })
+
+          // Carregar preferência de modo escuro
+          if (adminData) {
+            const { data: prefData } = await supabase
+              .from("preferencias_usuario")
+              .select("modo_escuro")
+              .eq("user_id", session.user.id)
+              .single()
+
+            if (prefData) {
+              setUserPreferences({ modoEscuro: prefData.modo_escuro })
+
+              // Aplicar modo escuro diretamente
+              if (prefData.modo_escuro) {
+                document.documentElement.classList.add("dark")
+              } else {
+                document.documentElement.classList.remove("dark")
+              }
             }
           }
+
+          // Se o evento for SIGNED_IN, redirecionar para o painel
+          if (event === "SIGNED_IN") {
+            router.push("/admin")
+          }
+        } catch (error) {
+          console.error("Erro ao processar autenticação:", error)
         }
       } else {
         setUser(null)
-      }
 
-      // Atualiza a página para refletir o novo estado de autenticação
-      router.refresh()
+        // Se o evento for SIGNED_OUT, redirecionar para o login
+        if (event === "SIGNED_OUT") {
+          router.push("/admin/login")
+        }
+      }
     })
 
     return () => {
@@ -179,15 +192,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log("Tentando fazer login com:", email)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
+        console.error("Erro de autenticação:", error)
         return { error }
       }
 
+      console.log("Login bem-sucedido:", data.user?.email)
       return { error: null }
     } catch (error) {
       console.error("Erro ao fazer login:", error)

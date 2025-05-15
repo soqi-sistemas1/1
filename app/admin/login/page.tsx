@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/hooks/use-auth"
 import { ShoppingBag, Lock } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,17 +28,27 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { error } = await signIn(email, password)
+      const { error: signInError } = await signIn(email, password)
 
-      if (error) {
+      if (signInError) {
+        console.error("Erro de login:", signInError)
         setError("Credenciais inválidas. Tente novamente.")
+        setLoading(false)
       } else {
-        router.push("/admin")
+        toast({
+          title: "Login bem-sucedido",
+          description: "Redirecionando para o painel administrativo...",
+        })
+
+        // Usar setTimeout para dar tempo ao toast aparecer antes do redirecionamento
+        setTimeout(() => {
+          router.push("/admin")
+          router.refresh() // Forçar atualização da página
+        }, 1000)
       }
     } catch (err) {
-      setError("Ocorreu um erro ao fazer login. Tente novamente.")
       console.error("Erro de login:", err)
-    } finally {
+      setError("Ocorreu um erro ao fazer login. Tente novamente.")
       setLoading(false)
     }
   }
