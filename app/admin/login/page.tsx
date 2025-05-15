@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,9 +18,34 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
+  const [loginSuccess, setLoginSuccess] = useState(false)
+  const { signIn, user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
+
+  // Obter o parâmetro "from" da URL (para onde redirecionar após o login)
+  const fromPath = searchParams.get("from") || "/admin"
+
+  // Verificar se o usuário já está autenticado
+  useEffect(() => {
+    if (user) {
+      console.log("Usuário já autenticado, redirecionando para:", fromPath)
+      router.push(fromPath)
+    }
+  }, [user, fromPath, router])
+
+  // Efeito para redirecionar após login bem-sucedido
+  useEffect(() => {
+    if (loginSuccess) {
+      const redirectTimer = setTimeout(() => {
+        console.log("Redirecionando para:", fromPath)
+        window.location.href = fromPath // Usar navegação direta do navegador em vez do router
+      }, 1500)
+
+      return () => clearTimeout(redirectTimer)
+    }
+  }, [loginSuccess, fromPath])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,6 +53,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      console.log("Tentando fazer login com:", email)
       const { error: signInError } = await signIn(email, password)
 
       if (signInError) {
@@ -35,16 +61,14 @@ export default function LoginPage() {
         setError("Credenciais inválidas. Tente novamente.")
         setLoading(false)
       } else {
+        console.log("Login bem-sucedido, preparando redirecionamento")
         toast({
           title: "Login bem-sucedido",
           description: "Redirecionando para o painel administrativo...",
         })
 
-        // Usar setTimeout para dar tempo ao toast aparecer antes do redirecionamento
-        setTimeout(() => {
-          router.push("/admin")
-          router.refresh() // Forçar atualização da página
-        }, 1000)
+        setLoginSuccess(true)
+        // Não desativamos o loading para manter o botão desabilitado durante o redirecionamento
       }
     } catch (err) {
       console.error("Erro de login:", err)
@@ -90,13 +114,22 @@ export default function LoginPage() {
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
+              {loginSuccess && (
+                <p className="text-sm text-green-500">
+                  Login bem-sucedido! Redirecionando para o painel administrativo...
+                </p>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col">
-              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading}>
-                {loading ? (
+              <Button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600"
+                disabled={loading || loginSuccess}
+              >
+                {loading || loginSuccess ? (
                   <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></div>
-                    Entrando...
+                    {loginSuccess ? "Redirecionando..." : "Entrando..."}
                   </div>
                 ) : (
                   <>

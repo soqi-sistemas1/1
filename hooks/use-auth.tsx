@@ -71,17 +71,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
 
       try {
+        console.log("Verificando sessão do usuário...")
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
         if (session?.user) {
+          console.log("Sessão encontrada para:", session.user.email)
+
           // Buscar informações adicionais do administrador
-          const { data: adminData } = await supabase
+          const { data: adminData, error: adminError } = await supabase
             .from("administradores")
             .select("*")
             .eq("user_id", session.user.id)
             .single()
+
+          if (adminError && adminError.code !== "PGRST116") {
+            console.error("Erro ao buscar dados do administrador:", adminError)
+          }
 
           setUser({
             id: session.user.id,
@@ -110,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } else {
+          console.log("Nenhuma sessão encontrada")
           setUser(null)
         }
       } catch (error) {
@@ -167,28 +175,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           }
-
-          // Se o evento for SIGNED_IN, redirecionar para o painel
-          if (event === "SIGNED_IN") {
-            router.push("/admin")
-          }
         } catch (error) {
           console.error("Erro ao processar autenticação:", error)
         }
       } else {
         setUser(null)
-
-        // Se o evento for SIGNED_OUT, redirecionar para o login
-        if (event === "SIGNED_OUT") {
-          router.push("/admin/login")
-        }
       }
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [router, supabase])
+  }, [supabase])
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -204,6 +202,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log("Login bem-sucedido:", data.user?.email)
+
+      // Buscar informações adicionais do administrador imediatamente após o login
+      if (data.user) {
+        const { data: adminData, error: adminError } = await supabase
+          .from("administradores")
+          .select("*")
+          .eq("user_id", data.user.id)
+          .single()
+
+        if (adminError && adminError.code !== "PGRST116") {
+          console.error("Erro ao buscar dados do administrador após login:", adminError)
+        }
+
+        setUser({
+          id: data.user.id,
+          email: data.user.email || "",
+          isAdmin: !!adminData,
+          isSuperAdmin: adminData?.super_admin || false,
+        })
+      }
+
       return { error: null }
     } catch (error) {
       console.error("Erro ao fazer login:", error)
@@ -214,6 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut()
+      setUser(null)
       router.push("/admin/login")
     } catch (error) {
       console.error("Erro ao fazer logout:", error)
