@@ -12,12 +12,12 @@ export const revalidate = 60 // Revalidar a cada 60 segundos
 export default async function Admin() {
   // Carregar dados do banco de dados
   const [pedidos, produtos, categorias, bairros, metodosPagamento, configuracoes] = await Promise.all([
-    listarPedidos(),
-    listarProdutos(false),
-    listarCategorias(false),
-    listarBairros(false),
-    listarMetodosPagamento(false),
-    obterConfiguracoes(),
+    listarPedidos().catch(() => []),
+    listarProdutos(false).catch(() => []),
+    listarCategorias(false).catch(() => []),
+    listarBairros(false).catch(() => []),
+    listarMetodosPagamento(false).catch(() => []),
+    obterConfiguracoes().catch(() => ({})),
   ])
 
   // Verificar se o usuário é super admin
@@ -45,12 +45,12 @@ export default async function Admin() {
 
   return (
     <AdminPage
-      pedidos={pedidos}
-      produtos={produtos}
-      categorias={categorias}
-      bairros={bairros}
-      metodosPagamento={metodosPagamento}
-      configuracoes={configuracoes}
+      pedidosIniciais={pedidos || []}
+      produtosIniciais={produtos || []}
+      categoriasIniciais={categorias || []}
+      bairrosIniciais={bairros || []}
+      metodosPagamentoIniciais={metodosPagamento || []}
+      configuracoesIniciais={configuracoes || {}}
       isSuperAdmin={isSuperAdmin}
     />
   )
