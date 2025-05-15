@@ -49,7 +49,7 @@ interface AdminPageProps {
   bairrosIniciais: Bairro[]
   metodosPagamentoIniciais: MetodoPagamento[]
   configuracoesIniciais: Configuracao
-  isSuperAdmin: boolean
+  isSuperAdmin?: boolean // Tornando opcional
 }
 
 export default function AdminPage({
@@ -59,7 +59,7 @@ export default function AdminPage({
   bairrosIniciais,
   metodosPagamentoIniciais,
   configuracoesIniciais,
-  isSuperAdmin,
+  isSuperAdmin = false, // Valor padrão
 }: AdminPageProps) {
   const { toast } = useToast()
   const { user, signOut, userPreferences, updateUserPreferences } = useAuth()
@@ -73,6 +73,15 @@ export default function AdminPage({
   const [carregando, setCarregando] = useState(false)
   const { tema, atualizarTema } = useTema()
   const pathname = usePathname()
+  // Usar o valor do prop ou verificar o usuário atual
+  const [isUserSuperAdmin, setIsUserSuperAdmin] = useState(isSuperAdmin)
+
+  // Atualizar o estado de superadmin quando o usuário for carregado
+  useEffect(() => {
+    if (user?.isSuperAdmin !== undefined) {
+      setIsUserSuperAdmin(user.isSuperAdmin)
+    }
+  }, [user])
 
   const [editando, setEditando] = useState({
     tipo: "",
@@ -86,19 +95,25 @@ export default function AdminPage({
 
   // Sincronizar o tema com as preferências do usuário
   useEffect(() => {
-    if (userPreferences.modoEscuro !== tema.modoEscuro) {
+    if (
+      userPreferences?.modoEscuro !== undefined &&
+      tema?.modoEscuro !== undefined &&
+      userPreferences.modoEscuro !== tema.modoEscuro
+    ) {
       atualizarTema({ modoEscuro: userPreferences.modoEscuro })
     }
-  }, [userPreferences.modoEscuro, tema.modoEscuro, atualizarTema])
+  }, [userPreferences?.modoEscuro, tema?.modoEscuro, atualizarTema])
 
   const toggleModoEscuro = async () => {
-    const novoModoEscuro = !tema.modoEscuro
+    const novoModoEscuro = !tema?.modoEscuro
 
     // Atualizar o tema local
     atualizarTema({ modoEscuro: novoModoEscuro })
 
     // Atualizar as preferências do usuário no banco de dados
-    await updateUserPreferences({ modoEscuro: novoModoEscuro })
+    if (updateUserPreferences) {
+      await updateUserPreferences({ modoEscuro: novoModoEscuro })
+    }
   }
 
   const formatarData = (dataString) => {
@@ -516,7 +531,7 @@ export default function AdminPage({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ modoEscuro: !tema.modoEscuro }),
+        body: JSON.stringify({ modoEscuro: !tema?.modoEscuro }),
       })
     } catch (error) {
       console.error("Erro ao salvar preferência de modo escuro:", error)
@@ -536,7 +551,7 @@ export default function AdminPage({
   ]
 
   // Adicionar opção de administradores apenas para super admins
-  if (user.isSuperAdmin) {
+  if (isUserSuperAdmin) {
     menuItems.push({
       href: "/admin/administradores",
       label: "Administradores",
@@ -551,7 +566,7 @@ export default function AdminPage({
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Painel Administrativo</h1>
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="icon" onClick={toggleModoEscuro} aria-label="Alternar modo escuro">
-              {tema.modoEscuro ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {tema?.modoEscuro ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="h-5 w-5 mr-2" />
@@ -604,7 +619,7 @@ export default function AdminPage({
                   <TabsTrigger value="configuracoes" className="flex items-center">
                     <Settings className="h-4 w-4 mr-2" /> Configurações
                   </TabsTrigger>
-                  {isSuperAdmin && (
+                  {isUserSuperAdmin && (
                     <TabsTrigger value="administradores" className="flex items-center">
                       <ShieldCheck className="h-4 w-4 mr-2" /> Administradores
                     </TabsTrigger>
@@ -1419,7 +1434,7 @@ export default function AdminPage({
                     </CardContent>
                   </Card>
                 </TabsContent>
-                {isSuperAdmin && (
+                {isUserSuperAdmin && (
                   <TabsContent value="administradores" className="space-y-4">
                     <Card>
                       <CardHeader>
