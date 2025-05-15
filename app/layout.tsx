@@ -24,14 +24,14 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light">
-          <AuthProvider>
-            <TemaProvider>
+          <TemaProvider>
+            <AuthProvider>
               <CarrinhoProvider>
                 {children}
                 <Toaster />
               </CarrinhoProvider>
-            </TemaProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </TemaProvider>
         </ThemeProvider>
       </body>
     </html>

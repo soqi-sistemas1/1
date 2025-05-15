@@ -5,7 +5,6 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClientSupabaseClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-import { useTema } from "@/hooks/use-tema"
 
 type User = {
   id: string
@@ -19,6 +18,10 @@ type AuthContextType = {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
+  userPreferences: {
+    modoEscuro: boolean
+  }
+  updateUserPreferences: (preferences: { modoEscuro?: boolean }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -26,9 +29,45 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userPreferences, setUserPreferences] = useState({ modoEscuro: false })
   const router = useRouter()
   const supabase = createClientSupabaseClient()
-  const { atualizarTema } = useTema()
+
+  // Função para atualizar preferências do usuário
+  const updateUserPreferences = async (preferences: { modoEscuro?: boolean }) => {
+    if (!user) return
+
+    try {
+      // Atualizar no estado local
+      setUserPreferences((prev) => ({ ...prev, ...preferences }))
+
+      // Atualizar no banco de dados
+      const { data, error } = await supabase
+        .from("preferencias_usuario")
+        .upsert({
+          user_id: user.id,
+          modo_escuro: preferences.modoEscuro !== undefined ? preferences.modoEscuro : userPreferences.modoEscuro,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Erro ao atualizar preferências:", error)
+      }
+
+      // Aplicar modo escuro ao documento
+      if (preferences.modoEscuro !== undefined) {
+        if (preferences.modoEscuro) {
+          document.documentElement.classList.add("dark")
+        } else {
+          document.documentElement.classList.remove("dark")
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar preferências:", error)
+    }
+  }
 
   useEffect(() => {
     // Verificar se o usuário já está autenticado
@@ -64,7 +103,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .single()
 
             if (prefData) {
-              atualizarTema({ modoEscuro: prefData.modo_escuro })
+              setUserPreferences({ modoEscuro: prefData.modo_escuro })
+
+              // Aplicar modo escuro diretamente
+              if (prefData.modo_escuro) {
+                document.documentElement.classList.add("dark")
+              } else {
+                document.documentElement.classList.remove("dark")
+              }
             }
           }
         } else {
@@ -108,7 +154,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .single()
 
           if (prefData) {
-            atualizarTema({ modoEscuro: prefData.modo_escuro })
+            setUserPreferences({ modoEscuro: prefData.modo_escuro })
+
+            // Aplicar modo escuro diretamente
+            if (prefData.modo_escuro) {
+              document.documentElement.classList.add("dark")
+            } else {
+              document.documentElement.classList.remove("dark")
+            }
           }
         }
       } else {
@@ -122,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [router, supabase, atualizarTema])
+  }, [router, supabase])
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -151,7 +204,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  return <AuthContext.Provider value={{ user, loading, signIn, signOut }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signIn,
+        signOut,
+        userPreferences,
+        updateUserPreferences,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
