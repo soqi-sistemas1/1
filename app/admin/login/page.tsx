@@ -18,7 +18,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [loginSuccess, setLoginSuccess] = useState(false)
   const { signIn, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -31,21 +30,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (user) {
       console.log("Usuário já autenticado, redirecionando para:", fromPath)
-      router.push(fromPath)
+      window.location.href = fromPath
     }
-  }, [user, fromPath, router])
-
-  // Efeito para redirecionar após login bem-sucedido
-  useEffect(() => {
-    if (loginSuccess) {
-      const redirectTimer = setTimeout(() => {
-        console.log("Redirecionando para:", fromPath)
-        window.location.href = fromPath // Usar navegação direta do navegador em vez do router
-      }, 1500)
-
-      return () => clearTimeout(redirectTimer)
-    }
-  }, [loginSuccess, fromPath])
+  }, [user, fromPath])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,8 +54,10 @@ export default function LoginPage() {
           description: "Redirecionando para o painel administrativo...",
         })
 
-        setLoginSuccess(true)
-        // Não desativamos o loading para manter o botão desabilitado durante o redirecionamento
+        // Usar setTimeout para dar tempo ao toast aparecer e à sessão ser estabelecida
+        setTimeout(() => {
+          window.location.href = fromPath
+        }, 1500)
       }
     } catch (err) {
       console.error("Erro de login:", err)
@@ -114,22 +103,13 @@ export default function LoginPage() {
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              {loginSuccess && (
-                <p className="text-sm text-green-500">
-                  Login bem-sucedido! Redirecionando para o painel administrativo...
-                </p>
-              )}
             </CardContent>
             <CardFooter className="flex flex-col">
-              <Button
-                type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600"
-                disabled={loading || loginSuccess}
-              >
-                {loading || loginSuccess ? (
+              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading}>
+                {loading ? (
                   <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></div>
-                    {loginSuccess ? "Redirecionando..." : "Entrando..."}
+                    Entrando...
                   </div>
                 ) : (
                   <>

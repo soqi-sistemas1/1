@@ -65,6 +65,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Função para carregar os dados do usuário
+  const loadUserData = async (userId: string) => {
+    try {
+      // Buscar informações adicionais do administrador
+      const { data: adminData, error: adminError } = await supabase
+        .from("administradores")
+        .select("*")
+        .eq("user_id", userId)
+        .single()
+
+      if (adminError && adminError.code !== "PGRST116") {
+        console.error("Erro ao buscar dados do administrador:", adminError)
+        return null
+      }
+
+      // Carregar preferência de modo escuro
+      let modoEscuro = false
+      if (adminData) {
+        try {
+          const { data: prefData } = await supabase
+            .from("preferencias_usuario")
+            .select("modo_escuro")
+            .eq("user_id", userId)
+            .single()
+
+          if (prefData) {
+            modoEscuro = prefData.modo_escuro
+            setUserPreferences({ modoEscuro })
+
+            // Aplicar modo escuro diretamente
+            if (modoEscuro) {
+              document.documentElement.classList.add("dark")
+            } else {
+              document.documentElement.classList.remove("dark")
+            }
+          }
+        } catch (prefError) {
+          console.error("Erro ao carregar preferências:", prefError)
+        }
+      }
+
+      return {
+        adminData,
+        modoEscuro,
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do usuário:", error)
+      return null
+    }
+  }
+
   useEffect(() => {
     // Verificar se o usuário já está autenticado
     const checkUser = async () => {
@@ -79,43 +130,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           console.log("Sessão encontrada para:", session.user.email)
 
-          // Buscar informações adicionais do administrador
-          const { data: adminData, error: adminError } = await supabase
-            .from("administradores")
-            .select("*")
-            .eq("user_id", session.user.id)
-            .single()
-
-          if (adminError && adminError.code !== "PGRST116") {
-            console.error("Erro ao buscar dados do administrador:", adminError)
-          }
+          const userData = await loadUserData(session.user.id)
 
           setUser({
             id: session.user.id,
             email: session.user.email || "",
-            isAdmin: !!adminData,
-            isSuperAdmin: adminData?.super_admin || false,
+            isAdmin: !!userData?.adminData,
+            isSuperAdmin: userData?.adminData?.super_admin || false,
           })
-
-          // Carregar preferência de modo escuro
-          if (adminData) {
-            const { data: prefData } = await supabase
-              .from("preferencias_usuario")
-              .select("modo_escuro")
-              .eq("user_id", session.user.id)
-              .single()
-
-            if (prefData) {
-              setUserPreferences({ modoEscuro: prefData.modo_escuro })
-
-              // Aplicar modo escuro diretamente
-              if (prefData.modo_escuro) {
-                document.documentElement.classList.add("dark")
-              } else {
-                document.documentElement.classList.remove("dark")
-              }
-            }
-          }
         } else {
           console.log("Nenhuma sessão encontrada")
           setUser(null)
@@ -137,47 +159,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("Auth state changed:", event, session?.user?.email)
 
       if (session?.user) {
-        try {
-          // Buscar informações adicionais do administrador
-          const { data: adminData, error: adminError } = await supabase
-            .from("administradores")
-            .select("*")
-            .eq("user_id", session.user.id)
-            .single()
+        const userData = await loadUserData(session.user.id)
 
-          if (adminError && adminError.code !== "PGRST116") {
-            console.error("Erro ao buscar dados do administrador:", adminError)
-          }
-
-          setUser({
-            id: session.user.id,
-            email: session.user.email || "",
-            isAdmin: !!adminData,
-            isSuperAdmin: adminData?.super_admin || false,
-          })
-
-          // Carregar preferência de modo escuro
-          if (adminData) {
-            const { data: prefData } = await supabase
-              .from("preferencias_usuario")
-              .select("modo_escuro")
-              .eq("user_id", session.user.id)
-              .single()
-
-            if (prefData) {
-              setUserPreferences({ modoEscuro: prefData.modo_escuro })
-
-              // Aplicar modo escuro diretamente
-              if (prefData.modo_escuro) {
-                document.documentElement.classList.add("dark")
-              } else {
-                document.documentElement.classList.remove("dark")
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Erro ao processar autenticação:", error)
-        }
+        setUser({
+          id: session.user.id,
+          email: session.user.email || "",
+          isAdmin: !!userData?.adminData,
+          isSuperAdmin: userData?.adminData?.super_admin || false,
+        })
       } else {
         setUser(null)
       }
@@ -205,21 +194,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Buscar informações adicionais do administrador imediatamente após o login
       if (data.user) {
-        const { data: adminData, error: adminError } = await supabase
-          .from("administradores")
-          .select("*")
-          .eq("user_id", data.user.id)
-          .single()
-
-        if (adminError && adminError.code !== "PGRST116") {
-          console.error("Erro ao buscar dados do administrador após login:", adminError)
-        }
+        const userData = await loadUserData(data.user.id)
 
         setUser({
           id: data.user.id,
           email: data.user.email || "",
-          isAdmin: !!adminData,
-          isSuperAdmin: adminData?.super_admin || false,
+          isAdmin: !!userData?.adminData,
+          isSuperAdmin: userData?.adminData?.super_admin || false,
         })
       }
 
